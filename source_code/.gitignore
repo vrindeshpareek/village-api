@@ -1,0 +1,17 @@
+node_modules/
+.venv/
+.venv-*/
+dist/
+.env
+.env.*
+!.env.example
+!.env.production.example
+coverage/
+*.log
+.vercel/
+__pycache__/
+*.pyc
+etl/reports/
+etl/input/
+
+.vercel

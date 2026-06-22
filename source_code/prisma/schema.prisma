@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum PlanType {
+  FREE
+  PREMIUM
+  PRO
+  UNLIMITED
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+model Country {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String   @unique
+  states    State[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model State {
+  id        String   @id @default(cuid())
+  code      String
+  name      String
+  countryId String
+  country   Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  districts District[]
+  access    UserStateAccess[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([countryId, code])
+  @@index([name])
+}
+
+model District {
+  id           String        @id @default(cuid())
+  code         String
+  name         String
+  stateId      String
+  state        State         @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  subDistricts SubDistrict[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([stateId, code])
+  @@index([stateId])
+  @@index([name])
+}
+
+model SubDistrict {
+  id         String    @id @default(cuid())
+  code       String
+  name       String
+  districtId String
+  district   District  @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  villages   Village[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([districtId, code])
+  @@index([districtId])
+  @@index([name])
+}
+
+model Village {
+  id            String      @id @default(cuid())
+  code          String
+  name          String
+  status        String      @default("ACTIVE")
+  subDistrictId String
+  subDistrict   SubDistrict @relation(fields: [subDistrictId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([subDistrictId, code])
+  @@index([subDistrictId])
+  @@index([name])
+}
+
+model User {
+  id           String            @id @default(cuid())
+  email        String            @unique
+  passwordHash String
+  businessName String
+  gstNumber    String?
+  phoneNumber  String?
+  status       UserStatus        @default(PENDING_APPROVAL)
+  planType     PlanType          @default(FREE)
+  dailyLimit   Int               @default(5000)
+  burstLimit   Int               @default(100)
+  apiKeys      ApiKey[]
+  apiLogs      ApiLog[]
+  stateAccess  UserStateAccess[]
+  notes        AdminNote[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+}
+
+model ApiKey {
+  id          String       @id @default(cuid())
+  name        String
+  key         String       @unique
+  secretHash  String
+  status      ApiKeyStatus @default(ACTIVE)
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiLogs     ApiLog[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([userId])
+}
+
+model UserStateAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  stateId   String
+  grantedBy String?
+  grantedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state     State    @relation(fields: [stateId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, stateId])
+}
+
+model ApiLog {
+  id           String   @id @default(cuid())
+  endpoint     String
+  method       String
+  statusCode   Int
+  responseTime Int
+  ipAddress    String?
+  requestId    String
+  userId       String?
+  apiKeyId     String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  apiKey       ApiKey?  @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([endpoint])
+}
+
+model AdminNote {
+  id        String   @id @default(cuid())
+  body      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdBy String
+  createdAt DateTime @default(now())
+}
